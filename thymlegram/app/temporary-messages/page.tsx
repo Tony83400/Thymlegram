@@ -64,17 +64,10 @@ export default function TemporaryMessages() {
     const fetchUserAndData = async () => {
       try {
         const { data: { user }, error: authError } = await supabase.auth.getUser();
-        console.log("Auth user data:", user);
         
-        if (authError) {
-          console.error("Erreur auth:", authError);
-          throw authError;
-        }
+        if (authError) throw authError;
 
-        if (!user) {
-          console.log("Pas d'utilisateur trouvé");
-          return;
-        }
+        if (!user) return;
 
         setUser(user);
         
@@ -84,24 +77,16 @@ export default function TemporaryMessages() {
           .eq('id', user.id)
           .single();
         
-        console.log("Profile data:", profileData);
-        
-        if (profileError) {
-          console.error("Erreur profil:", profileError);
-          throw profileError;
-        }
+        if (profileError) throw profileError;
 
         if (profileData && profileData.username) {
-          console.log("Username trouvé:", profileData.username);
           setUsername(profileData.username);
         } else {
-          console.log("Pas de username dans le profil");
           setErrorMessage("Profil utilisateur incomplet");
         }
 
         await fetchTempContacts(user.id);
       } catch (error) {
-        console.error("Erreur complète:", error);
         setErrorMessage("Erreur lors du chargement des données utilisateur");
       }
     };
@@ -109,7 +94,6 @@ export default function TemporaryMessages() {
     fetchUserAndData();
 
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log("Auth state changed:", event, session?.user);
       if (session?.user) {
         await fetchUserAndData();
       }
@@ -138,10 +122,6 @@ export default function TemporaryMessages() {
   const fetchTempMessages = async () => {
     if (!selectedContact || !user) return;
 
-    console.log("Selected contact ID:", selectedContact.id);
-    console.log("User ID:", user.id);
-    console.log("Contact User ID:", selectedContact.contact_user_id);
-
     try {
       const { data, error } = await supabase
         .from('temp_messages')
@@ -153,8 +133,6 @@ export default function TemporaryMessages() {
         .order('created_at', { ascending: true });
 
       if (error) throw error;
-
-      console.log("Messages récupérés:", data);
 
       const decryptedMessages = data?.map(message => ({
         ...message,
@@ -170,8 +148,6 @@ export default function TemporaryMessages() {
 
   useEffect(() => {
     if (!selectedContact || !user) return;
-    
-    console.log("Configuration de la conversation avec:", selectedContact);
     
     // Récupérer les messages initiaux
     fetchTempMessages();
@@ -190,17 +166,13 @@ export default function TemporaryMessages() {
           filter: `or(and(sender_id.eq.${user.id},receiver_id.eq.${selectedContact.contact_user_id}),and(sender_id.eq.${selectedContact.contact_user_id},receiver_id.eq.${user.id}))`
         },
         (payload) => {
-          console.log("Nouveau message détecté:", payload);
           fetchTempMessages();
         }
       )
-      .subscribe((status) => {
-        console.log("Statut de la souscription aux messages:", status);
-      });
+      .subscribe();
 
     // Nettoyage
     return () => {
-      console.log("Nettoyage des souscriptions et intervalles");
       clearInterval(messageInterval);
       supabase.removeChannel(channel);
     };
@@ -218,15 +190,12 @@ export default function TemporaryMessages() {
         conversation_id: selectedContact.id
       };
 
-      console.log("Envoi du message:", messageToSend);
-
       const { error } = await supabase
         .from('temp_messages')
         .insert(messageToSend);
 
       if (error) throw error;
 
-      console.log("Message envoyé avec succès");
       setNewMessage('');
       
       // Attendre un court instant avant de recharger les messages
@@ -247,8 +216,6 @@ export default function TemporaryMessages() {
     }
 
     try {
-      console.log("Tentative d'ajout du contact:", newContactUsername.trim());
-      
       const { data: contactUser, error: userError } = await supabase
         .from('profiles')
         .select('id, username')
@@ -256,7 +223,6 @@ export default function TemporaryMessages() {
         .single();
 
       if (userError || !contactUser) {
-        console.error('Erreur recherche contact:', userError);
         setErrorMessage("Cet utilisateur n'existe pas");
         return;
       }
@@ -265,8 +231,6 @@ export default function TemporaryMessages() {
         setErrorMessage("Vous ne pouvez pas vous ajouter vous-même en contact.");
         return;
       }
-
-      console.log("Vérification contact existant entre:", user.id, "et", contactUser.id);
       
       // Vérifier si le contact existe déjà
       const { data: existingContact, error: existingError } = await supabase
@@ -285,8 +249,6 @@ export default function TemporaryMessages() {
       const expiresAt = new Date(Date.now() + newContactDuration * 60000).toISOString();
       const contactId = crypto.randomUUID();
 
-      console.log("Tentative création contact avec ID:", contactId);
-
       const newContact = {
         id: contactId,
         user_id: user.id,
@@ -295,20 +257,15 @@ export default function TemporaryMessages() {
         expires_at: expiresAt
       };
 
-      console.log("Données à insérer:", newContact);
-
-      const { data: insertedContact, error: insertError } = await supabase
+      const { error: insertError } = await supabase
         .from('temp_contacts')
         .insert(newContact);
 
-      if (insertError) {
-        console.error('Erreur création contact:', insertError);
-        throw insertError;
-      }
+      if (insertError) throw insertError;
 
       // Créer l'entrée inverse pour l'autre utilisateur
       const reverseContact = {
-        id: crypto.randomUUID(), // Nouvel ID unique pour l'entrée inverse
+        id: crypto.randomUUID(),
         user_id: contactUser.id,
         contact_user_id: user.id,
         username: username,
@@ -319,12 +276,7 @@ export default function TemporaryMessages() {
         .from('temp_contacts')
         .insert(reverseContact);
 
-      if (reverseInsertError) {
-        console.error('Erreur création contact inverse:', reverseInsertError);
-        throw reverseInsertError;
-      }
-
-      console.log('Contacts créés avec succès');
+      if (reverseInsertError) throw reverseInsertError;
 
       // Rafraîchir la liste des contacts
       await fetchTempContacts(user.id);
@@ -332,7 +284,6 @@ export default function TemporaryMessages() {
       setErrorMessage('');
 
     } catch (error) {
-      console.error("Erreur complète:", error);
       setErrorMessage("Une erreur est survenue lors de l'ajout du contact");
     }
   };
@@ -371,8 +322,6 @@ export default function TemporaryMessages() {
     if (!user || !selectedContact) return;
 
     try {
-      console.log("Arrêt de la conversation avec:", selectedContact);
-
       // Supprimer tous les messages liés aux deux utilisateurs
       const { error: messagesError } = await supabase
         .from('temp_messages')
@@ -402,8 +351,6 @@ export default function TemporaryMessages() {
         contact.id !== selectedContact.id
       ));
       
-      console.log("Conversation arrêtée avec succès");
-
     } catch (error) {
       console.error("Erreur lors de l'arrêt de la conversation:", error);
       setErrorMessage("Erreur lors de l'arrêt de la conversation");
@@ -413,8 +360,6 @@ export default function TemporaryMessages() {
   // Modifier également l'effet de surveillance des contacts
   useEffect(() => {
     if (!user) return;
-
-    console.log("Configuration de la surveillance des contacts temporaires");
 
     const fetchTempContacts = async () => {
       try {
@@ -426,7 +371,6 @@ export default function TemporaryMessages() {
 
         if (error) throw error;
 
-        console.log("Contacts temporaires chargés:", data);
         setContacts(data || []);
         
         if (selectedContact && !data?.some(contact => contact.id === selectedContact.id)) {
@@ -434,7 +378,6 @@ export default function TemporaryMessages() {
           setMessages([]);
         }
       } catch (error) {
-        console.error("Erreur chargement contacts:", error);
         setErrorMessage("Erreur lors du chargement des contacts");
       }
     };
@@ -449,8 +392,7 @@ export default function TemporaryMessages() {
           table: 'temp_contacts',
           filter: `user_id=eq.${user.id}`
         },
-        async (payload) => {
-          console.log("Changement détecté (comme utilisateur):", payload);
+        async () => {
           await fetchTempContacts();
         }
       )
@@ -465,8 +407,7 @@ export default function TemporaryMessages() {
           table: 'temp_contacts',
           filter: `contact_user_id=eq.${user.id}`
         },
-        async (payload) => {
-          console.log("Changement détecté (comme contact):", payload);
+        async () => {
           await fetchTempContacts();
         }
       )
@@ -480,7 +421,6 @@ export default function TemporaryMessages() {
 
     // Nettoyage
     return () => {
-      console.log("Nettoyage des souscriptions et de l'intervalle");
       supabase.removeChannel(channelAsUser);
       supabase.removeChannel(channelAsContact);
       clearInterval(refreshInterval);
@@ -491,9 +431,6 @@ export default function TemporaryMessages() {
     if (!user) return;
     
     try {
-      console.log("Début du nettoyage des conversations expirées");
-      
-      // Supprime d'abord les messages des contacts expirés
       const { data: expiredContacts, error: selectError } = await supabase
         .from('temp_contacts')
         .select('id')
@@ -502,9 +439,6 @@ export default function TemporaryMessages() {
       if (selectError) throw selectError;
       
       if (expiredContacts && expiredContacts.length > 0) {
-        console.log("Contacts expirés trouvés:", expiredContacts);
-        
-        // Supprime les messages associés
         const { error: messagesError } = await supabase
           .from('temp_messages')
           .delete()
@@ -512,24 +446,17 @@ export default function TemporaryMessages() {
 
         if (messagesError) throw messagesError;
 
-        // Supprime les contacts expirés
         const { error: contactsError } = await supabase
           .from('temp_contacts')
           .delete()
           .lt('expires_at', new Date().toISOString());
 
         if (contactsError) throw contactsError;
-
-        console.log("Nettoyage terminé avec succès");
         
-        // Mettre à jour l'état local
         await fetchTempContacts(user.id);
-      } else {
-        console.log("Aucun contact expiré trouvé");
       }
-
     } catch (error) {
-      console.error('Erreur lors du nettoyage des conversations expirées:', error);
+      setErrorMessage("Erreur lors du nettoyage des conversations expirées");
     }
   };
 
@@ -601,7 +528,12 @@ export default function TemporaryMessages() {
             min="1"
             max="60"
           />
-          <Button className="bg-emerald-200 hover:bg-emerald-300 text-black">Ajouter un contact temporaire</Button>
+          <Button 
+            onClick={addTempContact} 
+            className="bg-emerald-200 hover:bg-emerald-300 text-black"
+          >
+            Ajouter un contact temporaire
+          </Button>
           {errorMessage && <p className="text-red-500 text-sm mt-2">{errorMessage}</p>}
         </div>
       </div>
