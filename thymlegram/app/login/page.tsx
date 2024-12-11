@@ -35,7 +35,7 @@ export default function Login() {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-green-50">
       <form onSubmit={handleSubmit} className="p-8 bg-white rounded-lg shadow-md">
         <h2 className="text-2xl font-bold mb-6 text-center">Connexion</h2>
         {errorMessage && (
@@ -61,7 +61,7 @@ export default function Login() {
             required
           />
         </div>
-        <Button type="submit" className="w-full" disabled={isLoading}>
+        <Button type="submit" className="w-full bg-emerald-200 hover:bg-emerald-300 text-black" disabled={isLoading}>
           {isLoading ? "Connexion en cours..." : "Se connecter"}
         </Button>
       </form>
