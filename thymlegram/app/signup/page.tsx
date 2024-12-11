@@ -35,7 +35,6 @@ export default function Signup() {
 
         setUsernameStatus(data ? "Ce nom d'utilisateur est déjà pris" : "Nom d'utilisateur disponible");
       } catch (error) {
-        console.error("Erreur lors de la vérification du nom d'utilisateur:", error);
         setUsernameStatus("Erreur lors de la vérification");
       }
     };
@@ -44,7 +43,7 @@ export default function Signup() {
       if (username) {
         checkUsernameAvailability();
       }
-    }, 300); // Délai de 300ms pour éviter trop de requêtes
+    }, 300);
 
     return () => clearTimeout(debounceTimer);
   }, [username]);
@@ -88,7 +87,7 @@ export default function Signup() {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-green-50">
       <form onSubmit={handleSubmit} className="p-8 bg-white rounded-lg shadow-md w-96">
         <h2 className="text-2xl font-bold mb-6 text-center">Créer un compte</h2>
         {errorMessage && (
@@ -131,7 +130,7 @@ export default function Signup() {
         </div>
         <Button 
           type="submit" 
-          className="w-full" 
+          className="w-full bg-emerald-200 hover:bg-emerald-300 text-black" 
           disabled={isLoading || usernameStatus !== "Nom d'utilisateur disponible"}
         >
           {isLoading ? "Création en cours..." : "Créer un compte"}
