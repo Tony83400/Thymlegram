@@ -70,7 +70,6 @@ export default function Messages() {
             .maybeSingle();
 
           if (profileError && profileError.code !== 'PGRST116') {
-            console.error("Erreur profil:", profileError);
             throw profileError;
           }
 
@@ -95,7 +94,6 @@ export default function Messages() {
           await fetchContacts(user.id);
         }
       } catch (error) {
-        console.error("Erreur lors du chargement des données:", error);
         setErrorMessage("Erreur lors du chargement des données");
       } finally {
         setLoading(false);
@@ -141,22 +139,21 @@ export default function Messages() {
             if (error) throw error;
 
             const decryptedContent = decryptMessage(payload.new.content);
-            
-            const audio = new Audio('/notification.mp3');
-            await audio.play().catch(e => console.error('Erreur audio:', e));
 
             toast.success('Nouveau message', {
               description: `${senderData?.username}: ${decryptedContent.substring(0, 50)}${decryptedContent.length > 50 ? '...' : ''}`,
               duration: 5000,
-              important: true,
             });
 
             if (selectedContact?.id === payload.new.sender_id || selectedContact?.id === payload.new.receiver_id) {
               setMessages((prevMessages) => [
                 ...prevMessages,
                 {
-                  ...payload.new,
-                  content: decryptedContent
+                  id: payload.new.id,
+                  sender_id: payload.new.sender_id,
+                  receiver_id: payload.new.receiver_id,
+                  content: decryptedContent,
+                  created_at: payload.new.created_at
                 }
               ]);
               setTimeout(scrollToBottom, 100);
@@ -165,16 +162,12 @@ export default function Messages() {
             await fetchContacts(user.id);
             
           } catch (error) {
-            console.error('Erreur complète notification message:', error);
+            setErrorMessage("Erreur lors de la réception du message");
           }
         }
       );
 
-    channel.subscribe(async (status) => {
-      if (status === 'SUBSCRIBED') {
-        console.log('Subscription aux messages établie avec succès');
-      }
-    });
+    channel.subscribe();
 
     return () => {
       supabase.removeChannel(channel);
@@ -200,7 +193,7 @@ export default function Messages() {
           .single();
 
         if (lastMessageError && lastMessageError.code !== 'PGRST116') {
-          console.error("Erreur lors de la récupération du dernier message:", lastMessageError);
+          throw lastMessageError;
         }
 
         let lastMessage = '';
@@ -218,7 +211,6 @@ export default function Messages() {
 
       setContacts(contactsWithLastMessage);
     } catch (error) {
-      console.error("Erreur lors de la récupération des contacts:", error);
       setErrorMessage("Erreur lors de la récupération des contacts");
     }
   };
@@ -241,7 +233,6 @@ export default function Messages() {
       setMessages(decryptedMessages);
       setTimeout(scrollToBottom, 100);
     } catch (error) {
-      console.error("Erreur lors de la récupération des messages:", error);
       setErrorMessage("Erreur lors de la récupération des messages");
     }
   };
@@ -273,7 +264,6 @@ export default function Messages() {
       await fetchContacts(user.id);
       setTimeout(scrollToBottom, 100);
     } catch (error) {
-      console.error("Erreur lors de l'envoi du message:", error);
       setErrorMessage("Erreur lors de l'envoi du message");
     }
   };
@@ -323,7 +313,6 @@ export default function Messages() {
       setNewContactUsername('');
       setErrorMessage('');
     } catch (error) {
-      console.error("Erreur lors de l'ajout du contact:", error);
       setErrorMessage("Erreur lors de l'ajout du contact");
     }
   };
@@ -334,17 +323,12 @@ export default function Messages() {
     }
   };
 
-  const playNotificationSound = () => {
-    const audio = new Audio('/notification.mp3'); // Assurez-vous d'avoir ce fichier dans votre dossier public
-    audio.play().catch(e => console.log('Erreur audio:', e));
-  };
-
   if (loading) {
     return <div>Chargement...</div>;
   }
 
   return (
-    <div className="flex h-screen bg-gray-100">
+    <div className="flex h-screen bg-green-50">
       <Toaster 
         position="bottom-left"
         toastOptions={{
@@ -356,22 +340,26 @@ export default function Messages() {
         }}
       />
       
-      <div className="w-1/3 bg-white border-r flex flex-col">
-        <div className="p-4 border-b">
-          <h2 className="text-xl font-semibold">Messages</h2>
-          <div className="text-sm text-gray-500 mt-1">
-            Connecté en tant que {user?.username || 'Chargement...'}
-          </div>
-          <Link href="/temporary-messages" className="mt-2 inline-block">
-            <Button>Messages Temporaires</Button>
+      <div className="w-1/3 bg-green-50 border-r flex flex-col">
+        <div className="p-4 border-b bg-green-100 flex justify-between items-center">
+          <h2 className="text-xl font-semibold">
+            Messages
+            <div className="text-sm text-gray-500 mt-1">
+              Connecté en tant que {user?.username || 'Chargement...'}
+            </div>
+          </h2>
+          <Link href="/temporary-messages">
+            <Button className="bg-emerald-200 hover:bg-emerald-300 text-black">
+              Messages Temporaires
+            </Button>
           </Link>
         </div>
         <ScrollArea className="flex-grow">
           {contacts.map((contact) => (
             <div
               key={contact.id}
-              className={`p-4 cursor-pointer hover:bg-gray-100 ${
-                selectedContact?.id === contact.id ? 'bg-gray-100' : ''
+              className={`p-4 cursor-pointer hover:bg-green-100 ${
+                selectedContact?.id === contact.id ? 'bg-green-100' : ''
               }`}
               onClick={() => setSelectedContact(contact)}
             >
@@ -382,7 +370,7 @@ export default function Messages() {
             </div>
           ))}
         </ScrollArea>
-        <div className="p-4 border-t">
+        <div className="p-4 border-t bg-green-50">
           <Input
             type="text"
             placeholder="Ajouter un contact"
@@ -390,7 +378,10 @@ export default function Messages() {
             onChange={(e) => setNewContactUsername(e.target.value)}
             onKeyPress={handleKeyPressForContact}
           />
-          <Button onClick={addContact} className="w-full mt-2">
+          <Button 
+            onClick={addContact} 
+            className="w-full mt-2 bg-emerald-200 hover:bg-emerald-300 text-black"
+          >
             Ajouter
           </Button>
           {errorMessage && <p className="text-red-500 mt-2">{errorMessage}</p>}
@@ -400,10 +391,10 @@ export default function Messages() {
       <div className="flex-1 flex flex-col">
         {selectedContact ? (
           <>
-            <div className="p-4 border-b bg-white">
+            <div className="p-4 border-b bg-green-100">
               <h2 className="text-xl font-semibold">{selectedContact.username}</h2>
             </div>
-            <ScrollArea className="flex-grow p-4" ref={scrollAreaRef}>
+            <ScrollArea className="flex-grow p-4 bg-green-50" ref={scrollAreaRef}>
               <div className="space-y-4">
                 {messages.map((message) => (
                   <div
@@ -413,19 +404,22 @@ export default function Messages() {
                     }`}
                   >
                     <div
-                      className={`p-3 rounded-lg max-w-[70%] ${
+                      className={`p-3 rounded-lg max-w-[70%] relative group ${
                         message.sender_id === user.id
-                          ? 'bg-blue-500 text-white'
+                          ? 'bg-emerald-200 text-black'
                           : 'bg-gray-200'
                       }`}
                     >
                       {message.content}
+                      <span className="absolute bottom-0 right-0 text-xs opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-in-out bg-black text-white px-1 py-0.5 rounded">
+                        {new Date(message.created_at).toLocaleString('fr-FR')}
+                      </span>
                     </div>
                   </div>
                 ))}
               </div>
             </ScrollArea>
-            <div className="p-4 bg-white border-t flex">
+            <div className="p-4 bg-green-50 border-t flex">
               <Input
                 type="text"
                 placeholder="Tapez votre message..."
@@ -438,12 +432,19 @@ export default function Messages() {
                 }}
                 className="flex-1 mr-2"
               />
-              <Button onClick={sendMessage}>Envoyer</Button>
+              <Button 
+                onClick={sendMessage}
+                className="bg-emerald-200 hover:bg-emerald-300 text-black"
+              >
+                Envoyer
+              </Button>
             </div>
           </>
         ) : (
-          <div className="flex items-center justify-center h-full text-gray-500">
-            Sélectionnez une conversation pour commencer
+          <div className="flex items-center justify-center h-full bg-green-50">
+            <p className="text-xl text-gray-500">
+              Sélectionnez une conversation pour commencer
+            </p>
           </div>
         )}
       </div>
